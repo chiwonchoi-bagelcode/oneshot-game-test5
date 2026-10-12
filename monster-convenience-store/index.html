@@ -1,0 +1,1214 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#1d1730">
+<meta name="color-scheme" content="light">
+<title>괴물 편의점</title>
+<style>
+:root{
+  --ink:#2b2340; --paper:#fffaf0; --bg:#1d1730; --stage:#2f2650;
+  --ok:#1f7a47; --bad:#b8324a; --cold:#2f7fc4; --hot:#d2522c; --wet:#1f6fb8; --dry:#8a6a4a;
+  --hl:#ffd54a; --tap:44px;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;overflow:hidden;background:var(--bg);overscroll-behavior:none}
+body{font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Noto Sans KR","Malgun Gothic","Segoe UI",Roboto,sans-serif;color:var(--ink);-webkit-text-size-adjust:100%;-webkit-tap-highlight-color:transparent;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+button{font:inherit;color:inherit;-webkit-tap-highlight-color:transparent}
+.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);clip-path:inset(50%);white-space:nowrap}
+svg.i{width:1em;height:1em;flex:none;vertical-align:-.15em}
+.c-cold{color:var(--cold)} .c-hot{color:var(--hot)} .c-wet{color:var(--wet)} .c-dry{color:var(--dry)} .c-normal{color:#6b6478}
+.c-ok{color:var(--ok)} .c-bad{color:var(--bad)}
+:focus-visible{outline:3px solid var(--hl);outline-offset:2px}
+
+#viewport{position:fixed;top:0;right:0;bottom:0;left:0;overflow:hidden}
+#stage{position:absolute;left:0;top:0;width:360px;height:640px;transform-origin:0 0;background:var(--stage);overflow:hidden;touch-action:none}
+#game{position:absolute;top:0;right:0;bottom:0;left:0;display:flex;flex-direction:column;gap:6px;padding:6px 12px 8px}
+
+/* 상단: 카운터 */
+.hud{display:flex;gap:6px;flex:none}
+.stat{flex:1 1 0;min-width:0;display:flex;align-items:center;gap:5px;padding:4px 6px;border-radius:10px;background:rgba(255,255,255,.1);color:#fff;min-height:44px}
+.stat .ico{width:20px;height:20px;flex:none}
+.stat .lbl{font-size:10.5px;opacity:.85;white-space:nowrap}
+.stat .val{font-size:12px;white-space:nowrap}
+.stat .val b{font-size:19px;margin-right:1px}
+.stat.bump{animation:bump .45s ease-out}
+.stat.shake{animation:shake .45s ease-out}
+.btn-help{flex:none;width:var(--tap);min-height:var(--tap);border:0;border-radius:10px;background:rgba(255,255,255,.16);color:#fff;font-size:20px;font-weight:900;cursor:pointer;touch-action:manipulation}
+.btn-help:disabled{opacity:.35;cursor:default}
+
+/* 상단: 다음 손님 예고 */
+.upcoming{flex:none}
+.up-head{display:flex;justify-content:space-between;align-items:baseline;color:#fff;font-size:12px;font-weight:800;margin:0 2px 3px}
+.up-head .note{font-size:10.5px;font-weight:600;opacity:.8}
+.up-row{display:flex;gap:8px}
+.mini{flex:1 1 0;min-width:0;height:84px;background:#f6f1e6;border-radius:10px;padding:5px 6px;font-size:11px;line-height:1.2;display:flex;flex-direction:column;gap:3px}
+.mini.empty{background:transparent;border:2px dashed rgba(255,255,255,.22)}
+.mini-top{display:flex;align-items:center;gap:5px}
+.mini-face{width:24px;height:24px;flex:none}
+.mini-name{font-weight:900;font-size:12.5px;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mini-ord{font-size:10px;opacity:.65;white-space:nowrap}
+.ln{display:flex;align-items:center;gap:3px;white-space:nowrap}
+.tag{font-weight:800;font-size:10px;padding:1px 4px;border-radius:4px;background:var(--ink);color:#fff;margin-right:1px}
+.fits{display:flex;gap:4px;margin-top:auto}
+.fit{flex:1 1 0;display:flex;align-items:center;justify-content:center;gap:2px;font-size:10.5px;font-weight:800;border-radius:6px;padding:1px 0;border:1.5px solid;transition:opacity .15s}
+.fit.yes{color:var(--ok);border-color:var(--ok);background:#e2f3e8}
+.fit.no{color:var(--bad);border-color:var(--bad);background:#fbe7eb;border-style:dashed}
+.upcoming.pv-admit .fit[data-c=reject],.upcoming.pv-reject .fit[data-c=admit]{opacity:.28}
+.upcoming.pv-admit .fit[data-c=admit],.upcoming.pv-reject .fit[data-c=reject]{box-shadow:0 0 0 2px var(--hl)}
+
+/* 중앙: 가게 */
+.scene{flex:1 1 auto;min-height:140px;display:flex;flex-direction:column;gap:4px}
+.board{flex:none;display:flex;justify-content:space-between;align-items:center;gap:6px;background:#17112a;border-radius:10px;padding:8px 5px 4px;color:#fff}
+.axis{display:flex;align-items:center;gap:3px}
+.axis-name{font-size:10.5px;font-weight:800;opacity:.9;margin-right:1px}
+.seg{position:relative;display:flex;align-items:center;gap:2px;font-size:10.5px;line-height:1.2;padding:2px 4px;border-radius:6px;border:1.5px solid rgba(255,255,255,.22);color:rgba(255,255,255,.5);white-space:nowrap}
+.seg svg.i{width:12px;height:12px}
+.seg:not(.on) svg.i{color:inherit}
+.seg.on{background:#fff;color:var(--ink);border-color:#fff;font-weight:900}
+.seg.pred{outline:2px dashed var(--hl);outline-offset:1px}
+.seg.pred::after{content:"예상";position:absolute;top:-9px;right:-5px;font-size:8.5px;line-height:1.1;background:var(--hl);color:var(--ink);border-radius:4px;padding:0 2px;font-weight:900}
+.seg.flash{animation:flash .7s ease-out}
+
+.store{position:relative;flex:1 1 auto;min-height:96px;border-radius:12px;overflow:hidden;background:#f3ead8;--fh:70px;--clerk-top:40px}
+.room{position:absolute;top:0;right:0;bottom:0;left:0;width:100%;height:100%;display:block}
+.room .wall{fill:#f3ead8;transition:fill .6s}
+.temp-cold .room .wall{fill:#d3e7f5}
+.temp-hot .room .wall{fill:#f5c6a0}
+.room .lay{opacity:0;transition:opacity .6s}
+.temp-cold .lay-cold,.temp-hot .lay-hot,.floor-wet .lay-wet{opacity:1}
+.room .m-sad{opacity:0}
+.clerk-sad .room .m-sad{opacity:1}
+.clerk-sad .room .m-happy{opacity:0}
+.room .wisp{animation:wisp 2.4s linear infinite}
+.room .wave{animation:drift 2.4s linear infinite}
+.instore,.doorguest{position:absolute;pointer-events:none}
+.instore{left:38%;bottom:4px;width:54px;height:54px}
+.instore.arrive{animation:arrive .5s ease-out}
+.doorguest{left:10px;bottom:calc(var(--fh) - 10px);width:46px;height:46px;opacity:0}
+.doorguest.angry{animation:angry 1.2s ease-out forwards}
+.doorguest.leave{animation:leave 1s ease-in forwards}
+.doorguest .anger{position:absolute;right:-8px;top:-6px;width:20px;height:20px}
+.bubble{position:absolute;max-width:150px;padding:3px 8px;border-radius:10px;background:#fff;border:2px solid var(--ink);font-size:11.5px;font-weight:800;line-height:1.25;opacity:0;pointer-events:none;white-space:nowrap}
+.bubble.show{animation:say 1.6s ease-out forwards}
+.bubble.clerk{right:4px;top:max(2px,calc(var(--clerk-top) - 40px))}
+.bubble.guest{left:22%;bottom:62px}
+.bubble.guest.at-door{left:6px;bottom:calc(var(--fh) + 40px)}
+.toast{position:absolute;left:50%;top:6px;transform:translateX(-50%);padding:3px 9px;border-radius:999px;background:rgba(23,17,42,.88);color:#fff;font-size:11.5px;font-weight:800;white-space:nowrap;opacity:0;pointer-events:none}
+.toast.show{animation:say 1.8s ease-out forwards}
+.fx{position:absolute;top:0;right:0;bottom:0;left:0;pointer-events:none;overflow:hidden}
+.pt{position:absolute;display:block;width:9px;height:9px;border-radius:50%;opacity:0;animation-fill-mode:forwards}
+.pt.fire{background:#ff8a3d;border:1.5px solid #b8401a;animation-name:rise;animation-duration:.9s;animation-timing-function:ease-out}
+.pt.puff{width:18px;height:18px;background:rgba(255,255,255,.9);border:1px solid #b9c2d6;animation-name:rise;animation-duration:1.1s;animation-timing-function:ease-out}
+.pt.snow{background:#fff;border:1.5px solid #8fbbe2;animation-name:fall;animation-duration:1.2s;animation-timing-function:linear}
+.pt.rain{width:3px;height:13px;border-radius:2px;background:#2f7fcf;animation-name:fall;animation-duration:.75s;animation-timing-function:linear}
+.pt.spark{width:10px;height:10px;border-radius:2px;background:#bfe4ff;border:1.5px solid #2f7fc4;transform:rotate(45deg);animation-name:rise;animation-duration:1s;animation-timing-function:ease-out}
+
+/* 하단: 현재 손님 카드와 선택 */
+.bottom{position:relative;flex:none;display:flex;flex-direction:column;gap:8px}
+.current{position:relative;height:158px}
+.card{position:absolute;left:28px;top:0;width:280px;height:158px;background:var(--paper);border-radius:16px;padding:9px 12px 6px;box-shadow:0 6px 0 rgba(0,0,0,.28);touch-action:none;cursor:grab;display:flex;flex-direction:column;gap:4px;z-index:1}
+.card.dragging{cursor:grabbing}
+.card.snap{transition:transform .18s ease-out}
+.card.enter{animation:enter .22s ease-out .06s backwards}
+.card.off{visibility:hidden}
+.card.ghost{z-index:2;pointer-events:none}
+.card-top{display:flex;align-items:center;gap:10px;height:50px}
+.card-face{width:50px;height:50px;flex:none}
+.who .ord{font-size:11px;opacity:.7}
+.who .name{font-size:20px;font-weight:900;line-height:1.15}
+.card .ln{font-size:13px;gap:4px;height:19px}
+.card .ln svg.i{width:15px;height:15px}
+.card .tag{font-size:11px}
+.fitnow{margin-left:auto;display:flex;align-items:center;gap:2px;font-size:11.5px;font-weight:900;padding:1px 6px;border-radius:6px;border:1.5px solid}
+.fitnow.yes{color:var(--ok);background:#e2f3e8}
+.fitnow.no{color:var(--bad);background:#fbe7eb;border-style:dashed}
+.result{display:flex;align-items:center;gap:4px;font-size:12.5px;font-weight:800;padding:3px 8px;border-radius:8px;background:#efe6d3;white-space:nowrap}
+.hint{font-size:10.5px;opacity:.55;text-align:center;margin-top:auto}
+.stamp{position:absolute;top:10px;padding:2px 9px;border:3px solid;border-radius:8px;font-size:20px;font-weight:900;line-height:1.1;text-align:center;background:rgba(255,255,255,.92);opacity:0;pointer-events:none}
+.stamp small{display:block;font-size:11px}
+.stamp-admit{left:10px;color:var(--ok);transform:rotate(-12deg)}
+.stamp-reject{right:10px;color:var(--bad);transform:rotate(12deg)}
+.stamp.ready{box-shadow:0 0 0 3px var(--hl)}
+.controls{display:flex;gap:10px;flex:none}
+.choice{flex:1 1 0;min-height:max(60px,var(--tap));border:0;border-radius:14px;font-size:18px;font-weight:900;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;cursor:pointer;box-shadow:0 4px 0 rgba(0,0,0,.3);touch-action:manipulation}
+.choice .big{display:flex;align-items:center;gap:5px}
+.choice small{font-size:11px;font-weight:800;opacity:.85}
+.choice.reject{background:#f8d5dc;color:#741a2b}
+.choice.admit{background:#cdeedb;color:#0f4d2a}
+.choice:active:not(:disabled){transform:translateY(2px);box-shadow:0 2px 0 rgba(0,0,0,.3)}
+.choice:disabled{opacity:.35;cursor:default}
+.choice.pv{box-shadow:0 0 0 3px var(--hl),0 4px 0 rgba(0,0,0,.3)}
+
+/* 종료 패널 */
+.endpanel{position:absolute;top:0;right:0;bottom:0;left:0;z-index:5;background:var(--paper);border-radius:16px;padding:12px 14px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;text-align:center;box-shadow:0 6px 0 rgba(0,0,0,.28)}
+.endpanel[hidden]{display:none}
+.end-title{display:flex;align-items:center;gap:8px;font-size:24px;font-weight:900}
+.end-title svg.i{width:28px;height:28px}
+.end-reason{font-size:14px;font-weight:700;line-height:1.35}
+.end-stats{font-size:12.5px;opacity:.75}
+.btn-big{min-height:max(56px,var(--tap));min-width:200px;border:0;border-radius:14px;background:var(--ink);color:#fff;font-size:18px;font-weight:900;cursor:pointer;padding:0 22px;box-shadow:0 4px 0 rgba(0,0,0,.3);touch-action:manipulation}
+.btn-big:active{transform:translateY(2px)}
+
+/* 시작 안내 */
+.overlay{position:absolute;top:0;right:0;bottom:0;left:0;z-index:20;display:flex;align-items:center;justify-content:center;padding:12px;background:rgba(18,12,32,.86)}
+.overlay[hidden]{display:none}
+.panel{width:100%;max-height:100%;display:flex;flex-direction:column;overflow:hidden;background:var(--paper);border-radius:16px;padding:14px 16px 12px;font-size:12.5px;line-height:1.38}
+.panel-body{flex:1 1 auto;min-height:0;overflow:auto;touch-action:pan-y}
+.panel h1{margin:0 0 2px;font-size:24px;display:flex;align-items:center;gap:8px}
+.panel h1 svg{width:34px;height:34px}
+.panel h2{margin:8px 0 2px;font-size:12.5px;font-weight:900;color:#5a4b8a}
+.panel p{margin:0}
+.panel ul{margin:0;padding:0;list-style:none}
+.panel li{display:flex;gap:5px;align-items:baseline;margin:2px 0}
+.panel li>svg.i{transform:translateY(2px)}
+.panel kbd{font:inherit;font-weight:900;padding:0 5px;border-radius:5px;border:1.5px solid var(--ink);background:#fff}
+.panel .go{flex:none;display:flex;justify-content:center;padding-top:10px}
+
+#rotate-hint{position:fixed;z-index:30;top:50%;transform:translateY(-50%);color:#fff;font-size:14px;line-height:1.45;padding:10px 12px;border-radius:12px;background:rgba(255,255,255,.1);display:none}
+#rotate-hint.show{display:block}
+
+@keyframes bump{40%{transform:scale(1.12)}}
+@keyframes shake{20%,60%{transform:translateX(-4px)}40%,80%{transform:translateX(4px)}}
+@keyframes flash{30%{box-shadow:0 0 0 4px var(--hl)}}
+@keyframes enter{from{opacity:0;transform:translateY(14px) scale(.96)}}
+@keyframes say{0%{opacity:0;transform:translateY(4px)}12%,80%{opacity:1;transform:none}100%{opacity:0}}
+.toast.show{animation-name:toast}
+@keyframes toast{0%{opacity:0;transform:translate(-50%,4px)}12%,82%{opacity:1;transform:translate(-50%,0)}100%{opacity:0;transform:translate(-50%,0)}}
+@keyframes arrive{from{transform:translateX(-90px);opacity:0}to{transform:none;opacity:1}}
+@keyframes angry{0%{opacity:0;transform:translateX(-10px)}15%{opacity:1;transform:none}25%,45%{transform:translateX(-3px)}35%,55%{transform:translateX(3px)}75%{opacity:1;transform:none}100%{opacity:0;transform:translateX(-30px)}}
+@keyframes leave{0%{opacity:1}100%{opacity:0;transform:translateX(-40px)}}
+@keyframes wisp{0%{transform:translateY(12px);opacity:0}30%{opacity:.9}100%{transform:translateY(-44px);opacity:0}}
+@keyframes drift{to{transform:translateX(24px)}}
+@keyframes rise{0%{opacity:1;transform:translate(0,0) scale(.6)}100%{opacity:0;transform:translate(var(--dx),var(--dy)) scale(1.3)}}
+@keyframes fall{0%{opacity:1;transform:translateY(0)}100%{opacity:.15;transform:translateY(var(--fall))}}
+@media (prefers-reduced-motion: reduce){
+  .room .wisp,.room .wave{animation:none}
+  .card.enter,.instore.arrive,.stat.bump,.stat.shake{animation-duration:.01s}
+}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <!-- 아이콘 -->
+  <symbol id="i-cold" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 2v20M3.3 7l17.4 10M3.3 17L20.7 7"/><path d="M9 3.5l3 3 3-3M9 20.5l3-3 3 3"/></g></symbol>
+  <symbol id="i-normal" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M10 4.5a2 2 0 0 1 4 0V14a4.2 4.2 0 1 1-4 0z"/><path d="M12 16.5V10"/></g><circle cx="12" cy="17.6" r="2.3" fill="currentColor"/></symbol>
+  <symbol id="i-hot" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3c-2 2 2 3.5 0 6M12 2c-2 2 2 3.5 0 6M17 3c-2 2 2 3.5 0 6"/><path d="M3 12.5h18c0 5-4 8.5-9 8.5s-9-3.5-9-8.5z"/></g></symbol>
+  <symbol id="i-nothot" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3c-2 2 2 3.5 0 6M12 2c-2 2 2 3.5 0 6M17 3c-2 2 2 3.5 0 6"/><path d="M3 12.5h18c0 5-4 8.5-9 8.5s-9-3.5-9-8.5z"/><path d="M2.5 22L21.5 2" stroke-width="2.8"/></g></symbol>
+  <symbol id="i-dry" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 12h18M12 3v18"/></g></symbol>
+  <symbol id="i-wet" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2c-3 4-5 6.3-5 8.8a5 5 0 0 0 10 0C17 8.3 15 6 12 2z"/><path d="M2 20.5c2.5-2 4.5 2 7 0s4.5 2 7 0 4.5 2 6 0"/></g></symbol>
+  <symbol id="i-yes" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="3.2"/></symbol>
+  <symbol id="i-no" viewBox="0 0 24 24"><path d="M5 5l14 14M19 5L5 19" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round"/></symbol>
+  <symbol id="i-coin" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9.5" fill="#f2b632" stroke="#7a5a10" stroke-width="2"/><path d="M7.5 8.5l2 7 2.5-5 2.5 5 2-7M6.5 11.5h11" fill="none" stroke="#7a5a10" stroke-width="1.7" stroke-linejoin="round" stroke-linecap="round"/></symbol>
+  <symbol id="i-anger" viewBox="0 0 24 24"><g fill="none" stroke="#ff5a6e" stroke-width="2.8" stroke-linecap="round"><path d="M9.5 3c0 4-2.5 6.5-6.5 6.5M14.5 3c0 4 2.5 6.5 6.5 6.5M9.5 21c0-4-2.5-6.5-6.5-6.5M14.5 21c0-4 2.5-6.5 6.5-6.5"/></g></symbol>
+  <symbol id="i-person" viewBox="0 0 24 24"><circle cx="12" cy="7" r="4" fill="currentColor"/><path d="M4 21c0-5 3.5-8 8-8s8 3 8 8z" fill="currentColor"/></symbol>
+
+  <!-- 손님 다섯 종: 실루엣 모양으로 구별 -->
+  <symbol id="g-dragon" viewBox="0 0 64 64">
+    <path d="M15 34L3 20l3 10-4 3 10 7z" fill="#f6b25b" stroke="#2b2340" stroke-width="2" stroke-linejoin="round"/>
+    <path d="M49 34l12-14-3 10 4 3-10 7z" fill="#f6b25b" stroke="#2b2340" stroke-width="2" stroke-linejoin="round"/>
+    <path d="M44 53q14 2 12-11" fill="none" stroke="#2b2340" stroke-width="6" stroke-linecap="round"/>
+    <path d="M44 53q14 2 12-11" fill="none" stroke="#5dbb63" stroke-width="3" stroke-linecap="round"/>
+    <ellipse cx="32" cy="46" rx="15" ry="13" fill="#5dbb63" stroke="#2b2340" stroke-width="2"/>
+    <ellipse cx="32" cy="49" rx="8.5" ry="8" fill="#f7e3a1"/>
+    <path d="M21 14L18 4l9 6zM43 14l3-10-9 6z" fill="#f7e3a1" stroke="#2b2340" stroke-width="2" stroke-linejoin="round"/>
+    <circle cx="32" cy="24" r="14" fill="#5dbb63" stroke="#2b2340" stroke-width="2"/>
+    <ellipse cx="32" cy="30" rx="8" ry="5.5" fill="#86d488" stroke="#2b2340" stroke-width="2"/>
+    <circle cx="29" cy="29.5" r="1.3" fill="#2b2340"/><circle cx="35" cy="29.5" r="1.3" fill="#2b2340"/>
+    <circle cx="26" cy="20" r="3" fill="#2b2340"/><circle cx="38" cy="20" r="3" fill="#2b2340"/>
+    <circle cx="27" cy="19" r="1" fill="#fff"/><circle cx="39" cy="19" r="1" fill="#fff"/>
+    <path d="M41 32q4-1 6 2-3 0-2 3-3-1-4-5z" fill="#ff8a3d" stroke="#2b2340" stroke-width="1.2" stroke-linejoin="round"/>
+  </symbol>
+  <symbol id="g-snowman" viewBox="0 0 64 64">
+    <path d="M17 41L6 33M47 41l11-8M9 35l-3 1M55 35l3 1" stroke="#7a5230" stroke-width="2.5" stroke-linecap="round"/>
+    <circle cx="32" cy="46" r="15" fill="#f4f8ff" stroke="#2b2340" stroke-width="2"/>
+    <circle cx="32" cy="24" r="11" fill="#f4f8ff" stroke="#2b2340" stroke-width="2"/>
+    <rect x="21" y="32" width="22" height="4.5" rx="2" fill="#e0525b" stroke="#2b2340" stroke-width="1.5"/>
+    <path d="M37 35l4 9h-5z" fill="#e0525b" stroke="#2b2340" stroke-width="1.5" stroke-linejoin="round"/>
+    <rect x="23" y="4" width="18" height="10" rx="1.5" fill="#2b2340"/>
+    <rect x="18" y="12.5" width="28" height="3.5" rx="1.5" fill="#2b2340"/>
+    <circle cx="28" cy="22" r="1.8" fill="#2b2340"/><circle cx="36" cy="22" r="1.8" fill="#2b2340"/>
+    <path d="M32 25l11 2.5-11 1.5z" fill="#ff8a3d" stroke="#2b2340" stroke-width="1.2" stroke-linejoin="round"/>
+    <circle cx="32" cy="44" r="1.8" fill="#2b2340"/><circle cx="32" cy="51" r="1.8" fill="#2b2340"/>
+  </symbol>
+  <symbol id="g-cloud" viewBox="0 0 64 64">
+    <path d="M14 42a9 9 0 0 1 2-18 12 12 0 0 1 22-6 10 10 0 0 1 14 9 8 8 0 0 1-2 15z" fill="#d7deea" stroke="#2b2340" stroke-width="2" stroke-linejoin="round"/>
+    <path d="M23 30q3 3 6 0M35 30q3 3 6 0" fill="none" stroke="#2b2340" stroke-width="2" stroke-linecap="round"/>
+    <path d="M29 36q3 2.5 6 0" fill="none" stroke="#2b2340" stroke-width="2" stroke-linecap="round"/>
+    <circle cx="21" cy="34" r="2.4" fill="#f4a3b4"/><circle cx="43" cy="34" r="2.4" fill="#f4a3b4"/>
+    <path d="M20 47q-3 5 0 8 3-3 0-8zM32 50q-3 5 0 8 3-3 0-8zM44 47q-3 5 0 8 3-3 0-8z" fill="#5aa9e6" stroke="#2b2340" stroke-width="1.3" stroke-linejoin="round"/>
+  </symbol>
+  <symbol id="g-steam" viewBox="0 0 64 64">
+    <path d="M24 11q-3-3 0-5.5t0-5.5M32 9q-3-3 0-4.5M40 11q-3-3 0-5.5t0-5.5" fill="none" stroke="#8d98b3" stroke-width="2" stroke-linecap="round"/>
+    <path d="M15 56V30a17 17 0 0 1 34 0v26l-5.5-5-5.5 5-5.5-5-5.5 5-5.5-5z" fill="#eef1f8" stroke="#2b2340" stroke-width="2" stroke-linejoin="round"/>
+    <ellipse cx="26" cy="29" rx="3" ry="4" fill="#2b2340"/><ellipse cx="38" cy="29" rx="3" ry="4" fill="#2b2340"/>
+    <ellipse cx="32" cy="39" rx="3" ry="3.5" fill="#2b2340"/>
+    <circle cx="21" cy="36" r="2.4" fill="#f4a3b4"/><circle cx="43" cy="36" r="2.4" fill="#f4a3b4"/>
+    <circle cx="23" cy="46" r="1.6" fill="#7cc4ef"/><circle cx="41" cy="44" r="1.6" fill="#7cc4ef"/>
+  </symbol>
+  <symbol id="g-bath" viewBox="0 0 64 64">
+    <path d="M32 5l-4.5 13h9z" fill="#f7e3a1" stroke="#2b2340" stroke-width="2" stroke-linejoin="round"/>
+    <circle cx="32" cy="39" r="17" fill="#e8735e" stroke="#2b2340" stroke-width="2"/>
+    <path d="M17 28q15-15 30 0v4q-15-11-30 0z" fill="#f6ead0" stroke="#2b2340" stroke-width="2" stroke-linejoin="round"/>
+    <circle cx="16" cy="23" r="7.5" fill="#f6ead0" stroke="#2b2340" stroke-width="2"/><circle cx="16" cy="23" r="3.3" fill="none" stroke="#c9b48a" stroke-width="1.6"/>
+    <circle cx="48" cy="23" r="7.5" fill="#f6ead0" stroke="#2b2340" stroke-width="2"/><circle cx="48" cy="23" r="3.3" fill="none" stroke="#c9b48a" stroke-width="1.6"/>
+    <path d="M23 38q3-3 6 0M35 38q3-3 6 0" fill="none" stroke="#2b2340" stroke-width="2" stroke-linecap="round"/>
+    <path d="M24.5 45q7.5 7 15 0z" fill="#7a2230" stroke="#2b2340" stroke-width="1.8" stroke-linejoin="round"/>
+    <path d="M27 45.5l1.5 3.2 1.5-3zM34 45.5l1.5 3 1.5-3.2z" fill="#fff"/>
+    <circle cx="20" cy="43" r="2.6" fill="#ffb0a0"/><circle cx="44" cy="43" r="2.6" fill="#ffb0a0"/>
+  </symbol>
+</svg>
+
+<div id="viewport">
+<div id="stage">
+  <div id="game">
+    <header class="hud">
+      <div class="stat" id="stat-sales"><svg class="ico" aria-hidden="true"><use href="#i-coin"/></svg><div><div class="lbl">판매 · 목표 6</div><div class="val"><b id="v-sales">0</b>건</div></div></div>
+      <div class="stat" id="stat-comp"><svg class="ico" aria-hidden="true"><use href="#i-anger"/></svg><div><div class="lbl">불만 · 한계 2</div><div class="val"><b id="v-comp">0</b>회</div></div></div>
+      <div class="stat" id="stat-left"><svg class="ico" aria-hidden="true" style="color:#cfc6ff"><use href="#i-person"/></svg><div><div class="lbl">남은 손님</div><div class="val"><b id="v-left">10</b>명</div></div></div>
+      <button class="btn-help" id="btn-help" type="button" aria-label="규칙 보기">?</button>
+    </header>
+
+    <section class="upcoming" id="upcoming" aria-label="다음 손님 예고">
+      <div class="up-head"><span>다음 손님</span><span class="note">이번 선택 직후 ‘지금 상태라면’</span></div>
+      <div class="up-row"><div class="mini" id="next1" role="group"></div><div class="mini" id="next2" role="group"></div></div>
+    </section>
+
+    <section class="scene" aria-label="가게">
+      <div class="board" id="board" role="group" aria-label="가게 상태">
+        <div class="axis"><span class="axis-name">온도</span>
+          <span class="seg" data-axis="temp" data-v="cold"><svg class="i c-cold" aria-hidden="true"><use href="#i-cold"/></svg>차가움</span>
+          <span class="seg" data-axis="temp" data-v="normal"><svg class="i c-normal" aria-hidden="true"><use href="#i-normal"/></svg>보통</span>
+          <span class="seg" data-axis="temp" data-v="hot"><svg class="i c-hot" aria-hidden="true"><use href="#i-hot"/></svg>뜨거움</span>
+        </div>
+        <div class="axis"><span class="axis-name">바닥</span>
+          <span class="seg" data-axis="floor" data-v="dry"><svg class="i c-dry" aria-hidden="true"><use href="#i-dry"/></svg>마름</span>
+          <span class="seg" data-axis="floor" data-v="wet"><svg class="i c-wet" aria-hidden="true"><use href="#i-wet"/></svg>젖음</span>
+        </div>
+      </div>
+      <div class="store temp-normal floor-dry" id="store">
+        <svg class="room" id="room" aria-hidden="true"></svg>
+        <div class="instore" id="instore" aria-hidden="true"></div>
+        <div class="doorguest" id="doorguest" aria-hidden="true"></div>
+        <div class="fx" id="fx" aria-hidden="true"></div>
+        <div class="bubble clerk" id="clerk-bubble" aria-hidden="true"></div>
+        <div class="bubble guest" id="guest-bubble" aria-hidden="true"></div>
+        <div class="toast" id="toast" aria-hidden="true"></div>
+      </div>
+    </section>
+
+    <section class="bottom" aria-label="현재 손님과 선택">
+      <div class="current" id="current">
+        <div class="card" id="card" role="group">
+          <div class="card-top">
+            <svg class="card-face" id="card-face" viewBox="0 0 64 64" aria-hidden="true"><use href="#g-dragon"/></svg>
+            <div class="who"><div class="ord" id="card-ord"></div><div class="name" id="card-name"></div></div>
+          </div>
+          <div class="ln" id="card-need"></div>
+          <div class="ln" id="card-effect"></div>
+          <div class="result" id="card-result"></div>
+          <div class="hint">← 밀어서 거절 · 밀어서 입장 →</div>
+          <div class="stamp stamp-admit" id="stamp-admit">입장<small id="stamp-admit-sub"></small></div>
+          <div class="stamp stamp-reject" id="stamp-reject">거절<small>가게 그대로</small></div>
+        </div>
+      </div>
+      <div class="controls">
+        <button class="choice reject" id="btn-reject" type="button"><span class="big"><svg class="i" aria-hidden="true"><use href="#i-no"/></svg>← 거절</span><small>가게 그대로</small></button>
+        <button class="choice admit" id="btn-admit" type="button"><span class="big">입장 →<svg class="i" aria-hidden="true"><use href="#i-yes"/></svg></span><small id="admit-sub">판매 +1</small></button>
+      </div>
+      <div class="endpanel" id="endpanel" role="dialog" aria-labelledby="end-title" hidden>
+        <div class="end-title" id="end-title"></div>
+        <div class="end-reason" id="end-reason"></div>
+        <div class="end-stats" id="end-stats"></div>
+        <button class="btn-big" id="btn-restart" type="button">다시 하기</button>
+      </div>
+    </section>
+  </div>
+
+  <div class="overlay" id="intro" role="dialog" aria-modal="true" aria-labelledby="intro-title">
+    <div class="panel">
+      <div class="panel-body">
+      <h1 id="intro-title"><svg viewBox="0 0 64 64" aria-hidden="true"><use href="#g-dragon"/></svg>괴물 편의점</h1>
+      <p>괴물 손님 <b>10명</b>을 들일지 말지 골라 <b>판매 6건 이상</b>으로 교대를 마치세요. 시간 제한은 없어요.</p>
+      <h2>조작</h2>
+      <ul>
+        <li><span>카드를 <b>오른쪽</b>으로 밀기 · <kbd>입장 →</kbd> : 들여보내기</span></li>
+        <li><span>카드를 <b>왼쪽</b>으로 밀기 · <kbd>← 거절</kbd> : 돌려보내기</span></li>
+      </ul>
+      <h2>규칙</h2>
+      <ul>
+        <li><svg class="i c-ok" aria-hidden="true"><use href="#i-yes"/></svg><span>요구가 맞는 손님 입장 → <b>판매 +1</b>, 가게가 그 손님 효과대로 바뀌어요.</span></li>
+        <li><svg class="i c-bad" aria-hidden="true"><use href="#i-no"/></svg><span>요구가 안 맞는 손님 입장 → <b>불만 +1</b>, 가게는 그대로. <b>불만 2회면 바로 실패.</b></span></li>
+        <li><span>–</span><span>거절 → 아무것도 바뀌지 않고 손님 한 명이 지나가요.</span></li>
+      </ul>
+      <h2>가게 상태는 딱 두 가지</h2>
+      <ul>
+        <li><span><b>온도</b>: <svg class="i c-cold" aria-hidden="true"><use href="#i-cold"/></svg>차가움(서리) · <svg class="i c-normal" aria-hidden="true"><use href="#i-normal"/></svg>보통 · <svg class="i c-hot" aria-hidden="true"><use href="#i-hot"/></svg>뜨거움(김)</span></li>
+        <li><span><b>바닥</b>: <svg class="i c-dry" aria-hidden="true"><use href="#i-dry"/></svg>마름(타일) · <svg class="i c-wet" aria-hidden="true"><use href="#i-wet"/></svg>젖음(웅덩이)</span></li>
+        <li><span>효과에 없는 상태는 그대로 남아요. 처음은 보통 · 마름.</span></li>
+      </ul>
+      <h2>예고 읽기</h2>
+      <p>다음 손님 두 명의 <b>입장 후 / 거절 후</b> 표시는 이번 손님을 들이거나 보낸 직후 <b>‘지금 상태라면’</b> 그 손님을 받을 수 있는지(<svg class="i c-ok" aria-hidden="true"><use href="#i-yes"/></svg> 가능, <svg class="i c-bad" aria-hidden="true"><use href="#i-no"/></svg> 불만)예요. 그 사이 다른 손님이 바꿀 환경은 계산하지 않아요.</p>
+      </div>
+      <div class="go"><button class="btn-big" id="btn-start" type="button">교대 시작</button></div>
+    </div>
+  </div>
+</div>
+</div>
+<div id="rotate-hint" aria-hidden="true">휴대폰을 <b>세로</b>로 돌리면<br>가게가 더 크게 보여요</div>
+<div class="sr-only" id="live" aria-live="polite"></div>
+
+<script>
+(function () {
+  'use strict';
+
+  /* ================================================================
+   * 1. 규칙 (순수 함수 · 표시 코드와 분리)
+   * ================================================================ */
+  var GUEST_COUNT = 10;        // 고정 교대의 손님 수
+  var SALES_TARGET = 6;        // 성공에 필요한 최소 판매
+  var COMPLAINT_LIMIT = 2;     // 즉시 실패하는 불만 수
+  var PREVIEW_COUNT = 2;       // 공개할 다음 손님 수
+  var SWIPE_THRESHOLD = 64;    // 논리 픽셀
+  var HORIZONTAL_RATIO = 1.5;  // |dx| >= 1.5|dy|
+  var CHOICE_LOCK_MS = 300;    // 확정 뒤 입력 잠금
+  var LOGICAL_W = 360, LOGICAL_H = 640;
+
+  var SEQUENCE = Object.freeze(['dragon', 'snowman', 'cloud', 'steam', 'snowman', 'bath', 'steam', 'dragon', 'dragon', 'bath']);
+  var TEMPS = ['cold', 'normal', 'hot'];
+
+  // need: 현재 상태에서 검사할 조건, effect: 절대 대입(언급하지 않은 축은 유지)
+  var GUESTS = Object.freeze({
+    dragon:  { name: '꼬마 용',     need: { wet: false },     effect: { temp: 'hot', wet: false } },
+    snowman: { name: '눈사람',      need: { notTemp: 'hot' }, effect: { temp: 'cold' } },
+    cloud:   { name: '비구름',      need: { temp: 'cold' },   effect: { wet: true } },
+    steam:   { name: '증기 유령',   need: { wet: true },      effect: { temp: 'hot', wet: false } },
+    bath:    { name: '찜질 도깨비', need: { temp: 'hot' },    effect: { temp: 'cold' } }
+  });
+
+  function fits(id, env) {
+    var n = GUESTS[id].need;
+    if ('wet' in n && env.wet !== n.wet) return false;
+    if ('temp' in n && env.temp !== n.temp) return false;
+    if ('notTemp' in n && env.temp === n.notTemp) return false;
+    return true;
+  }
+
+  function applyEffect(id, env) {
+    var e = GUESTS[id].effect;
+    return { temp: 'temp' in e ? e.temp : env.temp, wet: 'wet' in e ? e.wet : env.wet };
+  }
+
+  function initialState() {
+    return { scene: 'playing', temp: 'normal', wet: false, sales: 0, complaints: 0, index: 0, endReason: null };
+  }
+
+  // 한 번의 확정. 새 상태를 돌려주고 입력 상태는 바꾸지 않는다.
+  function resolve(state, choice) {
+    if (state.scene !== 'playing' || state.index >= GUEST_COUNT) return { state: state, outcome: null };
+    if (choice !== 'admit' && choice !== 'reject') return { state: state, outcome: null };
+    var id = SEQUENCE[state.index];
+    var s = Object.assign({}, state);
+    var outcome;
+    if (choice === 'admit') {
+      if (fits(id, state)) {          // 조건은 효과 적용 전 실제 상태에서 검사
+        s.sales += 1;
+        var env = applyEffect(id, state);
+        s.temp = env.temp; s.wet = env.wet;
+        outcome = 'sale';
+      } else {
+        s.complaints += 1;            // 부적합 입장은 불만만, 환경 변화 없음
+        outcome = 'complaint';
+      }
+    } else {
+      outcome = 'reject';
+    }
+    s.index += 1;
+    if (s.complaints >= COMPLAINT_LIMIT) { s.scene = 'failure'; s.endReason = 'complaints'; }
+    else if (s.index >= GUEST_COUNT) {
+      if (s.sales >= SALES_TARGET) { s.scene = 'success'; s.endReason = 'target'; }
+      else { s.scene = 'failure'; s.endReason = 'sales'; }
+    }
+    return { state: s, outcome: outcome, guest: id };
+  }
+
+  // 현재 선택 직후의 가게 상태(복제). 다음 손님 효과는 연쇄 적용하지 않는다.
+  function predictEnv(state, choice) {
+    var id = SEQUENCE[state.index];
+    if (choice === 'admit' && id && fits(id, state)) return applyEffect(id, state);
+    return { temp: state.temp, wet: state.wet };
+  }
+
+  function previewNext(state, choice) {
+    var env = predictEnv(state, choice);
+    var next = [];
+    for (var k = 1; k <= PREVIEW_COUNT; k++) {
+      var i = state.index + k;
+      next.push(i < GUEST_COUNT ? { id: SEQUENCE[i], index: i, fit: fits(SEQUENCE[i], env) } : null);
+    }
+    return { env: env, next: next };
+  }
+
+  function classifySwipe(dx, dy) {
+    var ax = Math.abs(dx), ay = Math.abs(dy);
+    if (ax >= SWIPE_THRESHOLD && ax >= HORIZONTAL_RATIO * ay) return dx > 0 ? 'admit' : 'reject';
+    return null;
+  }
+
+  /* ================================================================
+   * 2. 표시용 문구
+   * ================================================================ */
+  var TEMP_TEXT = { cold: '차가움', normal: '보통', hot: '뜨거움' };
+  function floorText(wet) { return wet ? '젖음' : '마름'; }
+  function envText(env) { return TEMP_TEXT[env.temp] + '·' + floorText(env.wet); }
+  var ICON_COLOR = { 'i-cold': 'c-cold', 'i-hot': 'c-hot', 'i-nothot': 'c-hot', 'i-normal': 'c-normal', 'i-wet': 'c-wet', 'i-dry': 'c-dry', 'i-yes': 'c-ok', 'i-no': 'c-bad' };
+  function ic(name) { return '<svg class="i ' + (ICON_COLOR[name] || '') + '" aria-hidden="true" focusable="false"><use href="#' + name + '"/></svg>'; }
+  function face(id) { return '<svg viewBox="0 0 64 64" aria-hidden="true" focusable="false" style="width:100%;height:100%"><use href="#g-' + id + '"/></svg>'; }
+
+  var NEED = {
+    dragon:  { icon: 'i-dry',    short: '마름',        long: '바닥 마름' },
+    snowman: { icon: 'i-nothot', short: '뜨겁지 않음', long: '뜨겁지 않음' },
+    cloud:   { icon: 'i-cold',   short: '차가움',      long: '온도 차가움' },
+    steam:   { icon: 'i-wet',    short: '젖음',        long: '바닥 젖음' },
+    bath:    { icon: 'i-hot',    short: '뜨거움',      long: '온도 뜨거움' }
+  };
+  function effectHTML(id, long) {
+    var e = GUESTS[id].effect, parts = [];
+    if ('temp' in e) parts.push(ic('i-' + e.temp) + (long ? '온도 ' : '') + TEMP_TEXT[e.temp]);
+    if ('wet' in e) parts.push(ic(e.wet ? 'i-wet' : 'i-dry') + (long ? '바닥 ' : '') + floorText(e.wet));
+    return parts.join(long ? ' · ' : ' ');
+  }
+  function effectPlain(id) {
+    var e = GUESTS[id].effect, parts = [];
+    if ('temp' in e) parts.push('온도 ' + TEMP_TEXT[e.temp]);
+    if ('wet' in e) parts.push('바닥 ' + floorText(e.wet));
+    return parts.join(', ');
+  }
+  var SALE_LINE = { dragon: '후~ 따끈하게!', snowman: '시원하게 쇼핑!', cloud: '쏴아~ 비 좀 뿌릴게', steam: '촉촉해서 좋아~', bath: '열기 냠냠, 시원해!' };
+  var COMPLAIN_LINE = { dragon: '발이 젖잖아!', snowman: '녹아 버려!', cloud: '안 추우면 흩어져!', steam: '건조해서 싫어!', bath: '안 뜨겁잖아!' };
+  var BURST = { dragon: 'fire', snowman: 'snow', cloud: 'rain', steam: 'puff', bath: 'spark' };
+
+  /* ================================================================
+   * 3. 화면 상태
+   * ================================================================ */
+  function $(id) { return document.getElementById(id); }
+  var stage = $('stage'), game = $('game'), store = $('store'), room = $('room');
+  var card = $('card'), current = $('current');
+  var btnAdmit = $('btn-admit'), btnReject = $('btn-reject'), btnRestart = $('btn-restart');
+  var btnHelp = $('btn-help'), btnStart = $('btn-start'), intro = $('intro'), endpanel = $('endpanel');
+  var upcoming = $('upcoming'), minis = [$('next1'), $('next2')];
+  var segs = Array.prototype.slice.call(document.querySelectorAll('#board .seg'));
+  var fx = $('fx'), instore = $('instore'), doorguest = $('doorguest');
+  var clerkBubble = $('clerk-bubble'), guestBubble = $('guest-bubble'), toast = $('toast');
+  var stampAdmit = $('stamp-admit'), stampReject = $('stamp-reject');
+  var reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  var state = initialState();
+  var scale = 1;
+  var lockUntil = 0;            // 확정 직후 입력 잠금 (performance.now 기준)
+  var drag = null;              // { id, x0, y0 } 첫 활성 포인터
+  var suppressClickUntil = 0;   // 드래그 뒤 합성 click 무시
+  var introOpen = true;
+  var hoverChoice = null, focusChoice = null;
+  var usedKeyboard = false;
+  var timers = [];
+  var bubbleTimers = {};
+
+  function now() { return performance.now(); }
+  function later(fn, ms) {
+    var t = setTimeout(function () { timers.splice(timers.indexOf(t), 1); fn(); }, ms);
+    timers.push(t);
+    return t;
+  }
+  function clearTimers() { timers.forEach(clearTimeout); timers = []; }
+
+  function canChoose() { return state.scene === 'playing' && !introOpen && now() >= lockUntil; }
+
+  /* ================================================================
+   * 4. 확정 (스와이프 · 버튼 · 키보드가 모두 이 함수 하나를 쓴다)
+   * ================================================================ */
+  function commit(choice, source) {
+    if (!canChoose()) return false;
+    if (source !== 'swipe' && drag) return false;    // 카드를 끄는 손가락이 있으면 다른 입력은 추가 포인터로 본다
+    var before = state;
+    var r = resolve(before, choice);
+    if (!r.outcome) return false;
+    state = r.state;
+    lockUntil = now() + CHOICE_LOCK_MS;
+    flyOut(choice);
+    drag = null;
+    render();
+    react(before, r);
+    if (state.scene !== 'playing') showEnd();
+    else setPreview(hoverChoice || focusChoice);
+    return true;
+  }
+
+  function restart(force) {
+    if (!force && now() < lockUntil) return false;   // 종료 직후 남은 입력이 바로 재시작하지 않게
+    state = initialState();
+    lockUntil = 0; drag = null; suppressClickUntil = 0;
+    clearTimers();
+    fx.innerHTML = '';
+    Array.prototype.slice.call(current.querySelectorAll('.ghost')).forEach(function (g) { g.remove(); });
+    [clerkBubble, guestBubble, toast].forEach(function (b) { b.className = b.className.replace(/\s*show/g, ''); });
+    instore.innerHTML = ''; instore.className = 'instore';
+    doorguest.innerHTML = ''; doorguest.className = 'doorguest';
+    store.classList.remove('clerk-sad');
+    endpanel.hidden = true;
+    resetCardPose();
+    setPreview(null);
+    render();
+    replay(card, 'enter');
+    announce('새 교대 시작. 첫 손님 ' + GUESTS[SEQUENCE[0]].name + '.');
+    if (usedKeyboard) btnAdmit.focus({ preventScroll: true });
+    return true;
+  }
+
+  /* ================================================================
+   * 5. 그리기
+   * ================================================================ */
+  function render() {
+    $('v-sales').textContent = state.sales;
+    $('v-comp').textContent = state.complaints;
+    $('v-left').textContent = GUEST_COUNT - state.index;
+
+    store.classList.remove('temp-cold', 'temp-normal', 'temp-hot', 'floor-wet', 'floor-dry');
+    store.classList.add('temp-' + state.temp, state.wet ? 'floor-wet' : 'floor-dry');
+    segs.forEach(function (s) {
+      var on = s.dataset.axis === 'temp' ? s.dataset.v === state.temp : s.dataset.v === (state.wet ? 'wet' : 'dry');
+      s.classList.toggle('on', on);
+      if (on) s.setAttribute('aria-current', 'true'); else s.removeAttribute('aria-current');
+    });
+    $('board').setAttribute('aria-label', '가게 상태: 온도 ' + TEMP_TEXT[state.temp] + ', 바닥 ' + floorText(state.wet));
+
+    var playing = state.scene === 'playing';
+    btnAdmit.disabled = !playing;
+    btnReject.disabled = !playing;
+    btnHelp.disabled = !playing;                       // 종료 뒤에는 다시 하기만 활성
+    renderCard();
+    renderUpcoming();
+  }
+
+  function renderCard() {
+    if (state.scene !== 'playing') {
+      card.classList.add('off');
+      card.setAttribute('aria-hidden', 'true');
+      return;
+    }
+    card.classList.remove('off');
+    card.removeAttribute('aria-hidden');
+    var id = SEQUENCE[state.index], g = GUESTS[id], ok = fits(id, state), after = applyEffect(id, state);
+    $('card-face').innerHTML = '<use href="#g-' + id + '"/>';
+    $('card-ord').textContent = '손님 ' + (state.index + 1) + ' / ' + GUEST_COUNT;
+    $('card-name').textContent = g.name;
+    $('card-need').innerHTML = '<span class="tag">요구</span>' + ic(NEED[id].icon) + NEED[id].long +
+      '<span class="fitnow ' + (ok ? 'yes' : 'no') + '">' + ic(ok ? 'i-yes' : 'i-no') + (ok ? '지금 맞음' : '지금 안 맞음') + '</span>';
+    $('card-effect').innerHTML = '<span class="tag">효과</span>' + effectHTML(id, true);
+    $('card-result').innerHTML = ok
+      ? ic('i-yes') + '입장하면 판매 +1 → 가게 ' + envText(after)
+      : ic('i-no') + '입장하면 불만 +1 · 가게 그대로';
+    $('stamp-admit-sub').textContent = ok ? '판매 +1' : '불만 +1';
+    $('admit-sub').textContent = ok ? '판매 +1' : '불만 +1';
+    card.setAttribute('aria-label', '현재 손님 ' + (state.index + 1) + '번째 ' + g.name + '. 요구 ' + NEED[id].long + ', 지금 ' + (ok ? '맞음' : '안 맞음') + '. 효과 ' + effectPlain(id) + '.');
+  }
+
+  function renderUpcoming() {
+    var pa = previewNext(state, 'admit').next, pr = previewNext(state, 'reject').next;
+    minis.forEach(function (el, k) {
+      var a = pa[k], r = pr[k];
+      if (state.scene !== 'playing' || !a) {   // 없는 예고 칸은 비운다
+        el.className = 'mini empty';
+        el.innerHTML = '';
+        el.setAttribute('aria-label', '예고 없음');
+        return;
+      }
+      var id = a.id;
+      el.className = 'mini';
+      el.innerHTML =
+        '<div class="mini-top"><span class="mini-face">' + face(id) + '</span><span class="mini-name">' + GUESTS[id].name + '</span><span class="mini-ord">다음 ' + (k + 1) + '</span></div>' +
+        '<div class="ln"><span class="tag">요구</span>' + ic(NEED[id].icon) + NEED[id].short + '</div>' +
+        '<div class="ln"><span class="tag">효과</span>' + effectHTML(id, false) + '</div>' +
+        '<div class="fits">' +
+          '<span class="fit ' + (a.fit ? 'yes' : 'no') + '" data-c="admit">입장 후 ' + ic(a.fit ? 'i-yes' : 'i-no') + '</span>' +
+          '<span class="fit ' + (r.fit ? 'yes' : 'no') + '" data-c="reject">거절 후 ' + ic(r.fit ? 'i-yes' : 'i-no') + '</span>' +
+        '</div>';
+      el.setAttribute('aria-label', '다음 ' + (k + 1) + '번째 손님 ' + GUESTS[id].name + '. 요구 ' + NEED[id].long + ', 효과 ' + effectPlain(id) +
+        '. 지금 상태라면 이번 손님 입장 후 ' + (a.fit ? '가능' : '불만') + ', 거절 후 ' + (r.fit ? '가능' : '불만') + '.');
+    });
+  }
+
+  // 선택 미리보기: 복제 상태만 표시하고 실제 상태·카운터는 건드리지 않는다.
+  function setPreview(choice) {
+    if (state.scene !== 'playing' || introOpen) choice = null;
+    var env = choice ? predictEnv(state, choice) : null;
+    upcoming.classList.toggle('pv-admit', choice === 'admit');
+    upcoming.classList.toggle('pv-reject', choice === 'reject');
+    segs.forEach(function (s) {
+      var pred = !!env && (s.dataset.axis === 'temp' ? s.dataset.v === env.temp : s.dataset.v === (env.wet ? 'wet' : 'dry'));
+      s.classList.toggle('pred', pred);
+    });
+    btnAdmit.classList.toggle('pv', choice === 'admit');
+    btnReject.classList.toggle('pv', choice === 'reject');
+  }
+
+  /* ================================================================
+   * 6. 반응 연출 (상태를 바꾸지 않고, 입력 잠금을 늘리지 않는다)
+   * ================================================================ */
+  function replay(el, cls) { el.classList.remove(cls); void el.offsetWidth; el.classList.add(cls); }
+
+  function say(el, text, extraCls) {
+    var key = el.id;
+    el.textContent = text;
+    el.className = el.className.replace(/\s*(show|at-door)/g, '') + (extraCls ? ' ' + extraCls : '');
+    void el.offsetWidth;
+    el.classList.add('show');
+    clearTimeout(bubbleTimers[key]);
+    bubbleTimers[key] = setTimeout(function () { el.classList.remove('show'); }, 1700);
+  }
+
+  function announce(msg) { $('live').textContent = msg; }
+
+  function flyOut(choice) {
+    var ghost = card.cloneNode(true);
+    ghost.removeAttribute('id');
+    ghost.removeAttribute('role');
+    Array.prototype.slice.call(ghost.querySelectorAll('[id]')).forEach(function (n) { n.removeAttribute('id'); });
+    ghost.classList.remove('dragging', 'snap', 'enter');
+    ghost.classList.add('ghost');
+    ghost.setAttribute('aria-hidden', 'true');
+    current.appendChild(ghost);
+    void ghost.offsetWidth;
+    var dir = choice === 'admit' ? 1 : -1, ms = reduceMotion ? 120 : 260;
+    ghost.style.transition = 'transform ' + ms + 'ms ease-in, opacity ' + ms + 'ms ease-in';
+    ghost.style.transform = 'translateX(' + (dir * 340) + 'px) rotate(' + (dir * 16) + 'deg)';
+    ghost.style.opacity = '0';
+    later(function () { ghost.remove(); }, ms + 60);
+    resetCardPose();
+    replay(card, 'enter');
+  }
+
+  function react(before, r) {
+    var id = r.guest, g = GUESTS[id];
+    if (r.outcome === 'sale') {
+      instore.innerHTML = face(id);
+      instore.className = 'instore';
+      replay(instore, 'arrive');
+      burst(BURST[id]);
+      say(guestBubble, SALE_LINE[id]);
+      say(clerkBubble, '어서 오세요!');
+      replay($('stat-sales'), 'bump');
+      var changes = [];
+      if (before.temp !== state.temp) {
+        changes.push(state.temp === 'hot' ? '뜨거움: 김이 모락모락' : state.temp === 'cold' ? '차가움: 서리가 꼈어요' : '온도 보통');
+        flashSeg('temp', state.temp);
+      }
+      if (before.wet !== state.wet) {
+        changes.push(state.wet ? '젖음: 웅덩이 수영장!' : '마름: 바닥이 말랐어요');
+        flashSeg('floor', state.wet ? 'wet' : 'dry');
+      }
+      say(toast, changes.length ? changes.join(' · ') : '가게 상태는 그대로');
+      announce(g.name + ' 입장, 판매 ' + state.sales + '건. 가게 ' + envText(state) + (changes.length ? '로 바뀜.' : ' 그대로.'));
+    } else if (r.outcome === 'complaint') {
+      doorguest.innerHTML = face(id) + '<svg class="anger" aria-hidden="true"><use href="#i-anger"/></svg>';
+      doorguest.className = 'doorguest';
+      replay(doorguest, 'angry');
+      say(guestBubble, COMPLAIN_LINE[id], 'at-door');
+      say(clerkBubble, '죄송합니다…');
+      replay($('stat-comp'), 'shake');
+      store.classList.add('clerk-sad');
+      later(function () { if (state.scene === 'playing') store.classList.remove('clerk-sad'); }, 1300);
+      announce(g.name + ' 불만! 불만 ' + state.complaints + '회. 가게는 그대로.');
+    } else {
+      doorguest.innerHTML = face(id);
+      doorguest.className = 'doorguest';
+      replay(doorguest, 'leave');
+      say(guestBubble, '다음에 올게~', 'at-door');
+      say(clerkBubble, '또 오세요!');
+      announce(g.name + ' 거절. 남은 손님 ' + (GUEST_COUNT - state.index) + '명.');
+    }
+  }
+
+  function flashSeg(axis, v) {
+    segs.forEach(function (s) { if (s.dataset.axis === axis && s.dataset.v === v) replay(s, 'flash'); });
+  }
+
+  function burst(kind) {
+    var w = store.clientWidth, h = store.clientHeight, n = reduceMotion ? 4 : 14;
+    var ox = w * 0.38 + 27, oy = h - 34;
+    for (var i = 0; i < n; i++) {
+      var p = document.createElement('i');
+      p.className = 'pt ' + kind;
+      if (kind === 'snow' || kind === 'rain') {
+        p.style.left = Math.round(Math.random() * (w - 10)) + 'px';
+        p.style.top = Math.round(-14 + Math.random() * h * 0.3) + 'px';
+        p.style.setProperty('--fall', Math.round(h * 0.75) + 'px');
+      } else {
+        p.style.left = Math.round(ox - 5 + (Math.random() - 0.5) * 24) + 'px';
+        p.style.top = Math.round(oy + (Math.random() - 0.5) * 12) + 'px';
+        p.style.setProperty('--dx', Math.round((Math.random() - 0.5) * 130) + 'px');
+        p.style.setProperty('--dy', Math.round(-h * (0.35 + Math.random() * 0.4)) + 'px');
+      }
+      p.style.animationDelay = Math.round(Math.random() * 280) + 'ms';
+      fx.appendChild(p);
+      later(p.remove.bind(p), 1700);
+    }
+  }
+
+  function showEnd() {
+    var s = state, title, reason, icon;
+    if (s.scene === 'success') {
+      icon = 'i-yes'; title = '교대 성공!';
+      reason = '판매 ' + s.sales + '건으로 목표 ' + SALES_TARGET + '건을 달성했어요.';
+    } else if (s.endReason === 'complaints') {
+      icon = 'i-no'; title = '교대 실패';
+      reason = '불만이 ' + COMPLAINT_LIMIT + '회 쌓여 교대가 바로 끝났어요.';
+    } else {
+      icon = 'i-no'; title = '교대 실패';
+      reason = '손님 ' + GUEST_COUNT + '명을 모두 맞았지만 판매 ' + s.sales + '건 — 목표 ' + SALES_TARGET + '건에 ' + (SALES_TARGET - s.sales) + '건 모자라요.';
+    }
+    $('end-title').innerHTML = ic(icon) + title;
+    $('end-reason').textContent = reason;
+    $('end-stats').textContent = '판매 ' + s.sales + '건 · 불만 ' + s.complaints + '회 · 처리한 손님 ' + s.index + ' / ' + GUEST_COUNT + '명';
+    endpanel.hidden = false;
+    setPreview(null);
+    later(function () { say(clerkBubble, s.scene === 'success' ? '수고했어요!' : '오늘은 여기까지…'); }, 700);
+    announce(title + '. ' + reason);
+    btnRestart.focus({ preventScroll: true });
+  }
+
+  /* ================================================================
+   * 7. 입력: 카드 스와이프
+   * ================================================================ */
+  function resetCardPose() {
+    card.classList.remove('dragging', 'snap');
+    card.style.transform = '';
+    stampAdmit.style.opacity = ''; stampReject.style.opacity = '';
+    stampAdmit.classList.remove('ready'); stampReject.classList.remove('ready');
+  }
+
+  function snapBack() {
+    resetCardPose();
+    card.classList.add('snap');
+    later(function () { card.classList.remove('snap'); }, 200);
+  }
+
+  function releaseCapture(id) {
+    try { if (card.hasPointerCapture && card.hasPointerCapture(id)) card.releasePointerCapture(id); } catch (_) {}
+  }
+
+  function cancelDrag() {
+    if (!drag) return;
+    var id = drag.id;
+    drag = null;                                       // 먼저 비워서 lostpointercapture가 다시 들어와도 무시
+    releaseCapture(id);
+    snapBack();
+    setPreview(hoverChoice || focusChoice);
+  }
+
+  card.addEventListener('pointerdown', function (e) {
+    if (drag) return;                                 // 추가 손가락은 무시
+    if (!e.isPrimary) return;                         // 첫 활성 포인터만
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    if (!canChoose()) return;
+    drag = { id: e.pointerId, x0: e.clientX, y0: e.clientY };
+    try { card.setPointerCapture(e.pointerId); } catch (_) {}
+    card.classList.remove('snap');
+    card.classList.add('dragging');
+  });
+
+  card.addEventListener('pointermove', function (e) {
+    if (!drag || e.pointerId !== drag.id) return;
+    var dx = (e.clientX - drag.x0) / scale, dy = (e.clientY - drag.y0) / scale;
+    var shown = Math.max(-150, Math.min(150, dx));
+    card.style.transform = 'translate(' + shown + 'px,' + Math.max(-16, Math.min(16, dy * 0.25)) + 'px) rotate(' + (shown * 0.06) + 'deg)';
+    var dir = Math.abs(dx) >= 12 && Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'admit' : 'reject') : null;
+    var ready = classifySwipe(dx, dy);
+    stampAdmit.style.opacity = dir === 'admit' ? Math.min(1, 0.25 + Math.abs(dx) / SWIPE_THRESHOLD) : 0;
+    stampReject.style.opacity = dir === 'reject' ? Math.min(1, 0.25 + Math.abs(dx) / SWIPE_THRESHOLD) : 0;
+    stampAdmit.classList.toggle('ready', ready === 'admit');
+    stampReject.classList.toggle('ready', ready === 'reject');
+    setPreview(dir);                                   // 드래그 중에는 미리보기만 바뀐다
+  });
+
+  card.addEventListener('pointerup', function (e) {
+    if (!drag || e.pointerId !== drag.id) return;
+    var dx = (e.clientX - drag.x0) / scale, dy = (e.clientY - drag.y0) / scale;
+    drag = null;
+    releaseCapture(e.pointerId);
+    card.classList.remove('dragging');
+    if (Math.abs(dx) > 6 || Math.abs(dy) > 6) suppressClickUntil = now() + 350;
+    var choice = classifySwipe(dx, dy);
+    if (!(choice && commit(choice, 'swipe'))) { snapBack(); setPreview(hoverChoice || focusChoice); }
+  });
+
+  card.addEventListener('pointercancel', function (e) { if (drag && e.pointerId === drag.id) cancelDrag(); });
+  card.addEventListener('lostpointercapture', function (e) { if (drag && e.pointerId === drag.id) cancelDrag(); });
+  card.addEventListener('contextmenu', function (e) { e.preventDefault(); });
+  window.addEventListener('blur', cancelDrag);
+  document.addEventListener('visibilitychange', function () { if (document.hidden) cancelDrag(); });
+  window.addEventListener('pagehide', cancelDrag);
+
+  /* ================================================================
+   * 8. 입력: 버튼 · 키보드
+   * ================================================================ */
+  function onChoiceButton(choice) {
+    return function () {
+      if (now() < suppressClickUntil) return;          // 드래그 끝의 합성 click
+      commit(choice, 'button');
+    };
+  }
+  btnAdmit.addEventListener('click', onChoiceButton('admit'));
+  btnReject.addEventListener('click', onChoiceButton('reject'));
+  [[btnAdmit, 'admit'], [btnReject, 'reject']].forEach(function (pair) {
+    var btn = pair[0], c = pair[1];
+    btn.addEventListener('pointerenter', function (e) { if (e.pointerType === 'mouse') { hoverChoice = c; if (!drag) setPreview(c); } });
+    btn.addEventListener('pointerleave', function (e) { if (e.pointerType === 'mouse') { hoverChoice = null; if (!drag) setPreview(focusChoice); } });
+    btn.addEventListener('focus', function () {
+      var kb = false;
+      try { kb = btn.matches(':focus-visible'); } catch (_) {}
+      if (kb) { focusChoice = c; if (!drag) setPreview(c); }
+    });
+    btn.addEventListener('blur', function () { focusChoice = null; if (!drag) setPreview(hoverChoice); });
+  });
+
+  btnRestart.addEventListener('click', function () { if (now() >= suppressClickUntil) restart(false); });
+  btnHelp.addEventListener('click', function () { openIntro(true); });
+  btnStart.addEventListener('click', closeIntro);
+
+  document.addEventListener('keydown', function (e) {
+    usedKeyboard = true;
+    if (e.repeat || e.altKey || e.ctrlKey || e.metaKey) return;
+    if (introOpen) { if (e.key === 'Escape') closeIntro(); return; }
+    if (e.key === 'ArrowRight') { if (commit('admit', 'key')) e.preventDefault(); }
+    else if (e.key === 'ArrowLeft') { if (commit('reject', 'key')) e.preventDefault(); }
+  });
+  document.addEventListener('pointerdown', function () { usedKeyboard = false; }, true);
+
+  function openIntro(isHelp) {
+    cancelDrag();
+    introOpen = true;
+    setPreview(null);
+    btnStart.textContent = isHelp ? '계속하기' : '교대 시작';
+    intro.hidden = false;
+    game.inert = true;
+    btnStart.focus({ preventScroll: true });
+  }
+
+  function closeIntro() {
+    introOpen = false;
+    intro.hidden = true;
+    game.inert = false;
+    if (state.scene !== 'playing') btnRestart.focus({ preventScroll: true });
+    else if (usedKeyboard) btnAdmit.focus({ preventScroll: true });
+  }
+
+  /* ================================================================
+   * 9. 배치: 360×640 논리 좌표를 화면에 맞춰 축소·확대
+   * ================================================================ */
+  var storeKey = '';
+  function layout() {
+    var vw = window.innerWidth, vh = window.innerHeight;
+    var s = Math.min(vw / LOGICAL_W, vh / LOGICAL_H, 2.2);
+    var H = Math.max(LOGICAL_H, Math.min(vh / s, 800));   // 긴 세로 화면은 가게 장면을 늘린다
+    if (drag) cancelDrag();
+    scale = s;
+    stage.style.height = H + 'px';
+    stage.style.transform = 'translate(' + ((vw - LOGICAL_W * s) / 2) + 'px,' + Math.max(0, (vh - H * s) / 2) + 'px) scale(' + s + ')';
+    // 실제 터치 영역이 44 CSS 픽셀 아래로 줄지 않도록 논리 크기를 키운다
+    document.documentElement.style.setProperty('--tap', Math.max(44, Math.ceil(46 / s)) + 'px');
+    var hint = $('rotate-hint');
+    var margin = (vw - LOGICAL_W * s) / 2;
+    var landscapePhone = vw > vh && vh < 560 && margin > 110;
+    hint.classList.toggle('show', landscapePhone);
+    if (landscapePhone) { hint.style.left = '10px'; hint.style.maxWidth = Math.round(margin - 20) + 'px'; }
+    buildStore();
+  }
+
+  function buildStore() {
+    var w = store.clientWidth, h = store.clientHeight, key = w + 'x' + h;
+    if (!w || !h || key === storeKey) return;
+    storeKey = key;
+    var geo = storeSVG(w, h);
+    room.setAttribute('viewBox', '0 0 ' + w + ' ' + h);
+    room.innerHTML = geo.svg;
+    store.style.setProperty('--fh', geo.fh + 'px');
+    store.style.setProperty('--clerk-top', (geo.clY - 12) + 'px');
+  }
+
+  // 절차적 가게 장면. 상태별 레이어(.lay-*)는 클래스로 켜고 끈다.
+  function storeSVG(w, h) {
+    var ink = '#2b2340', o = [];
+    var fy = Math.round(h * 0.6), fh = h - fy;
+    var signH = Math.round(Math.max(13, Math.min(22, fy * 0.15)));
+    var top = signH + 10;
+    var doorX = 8, doorW = 54, doorY = top + 2;
+    var shX = 72, shW = 140, shY = top + 6, shH = fy - shY;
+    var ctX = 222, ctW = w - ctX - 6, ctY = fy - 30;
+    var clX = ctX + ctW / 2, clY = ctY - 20;
+    var seed = 11;
+    function rnd() { seed = (seed * 9301 + 49297) % 233280; return seed / 233280; }
+    function flake(x, y, r) {
+      var a = 0.87 * r, b = 0.5 * r;
+      var d = 'M' + x + ' ' + (y - r) + 'V' + (y + r) + 'M' + (x - a) + ' ' + (y - b) + 'L' + (x + a) + ' ' + (y + b) + 'M' + (x - a) + ' ' + (y + b) + 'L' + (x + a) + ' ' + (y - b);
+      return '<path d="' + d + '" stroke="#5c9bd1" stroke-width="3.6" stroke-linecap="round"/><path d="' + d + '" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/>';
+    }
+    function wave(y) {
+      var d = 'M-24 ' + y;
+      for (var x = -24; x < w + 24; x += 24) d += ' q6 -4 12 0 q6 4 12 0';
+      return '<path class="wave" d="' + d + '" fill="none" stroke="#e8f6ff" stroke-width="2" stroke-linecap="round"/>';
+    }
+
+    o.push('<defs><pattern id="pt-tile" width="24" height="12" patternUnits="userSpaceOnUse"><rect width="24" height="12" fill="#ece5d5"/><path d="M0 .6H24M.6 0V12" stroke="#c7baa0" stroke-width="1.2"/></pattern></defs>');
+    // 벽
+    o.push('<rect class="wall" x="0" y="0" width="' + w + '" height="' + fy + '"/>');
+    var planks = '';
+    for (var py = 9; py < fy; py += 13) planks += '<path d="M0 ' + py + 'H' + w + '" stroke="#c4875a" stroke-width="1.6" opacity=".75"/>';
+    o.push('<g class="lay lay-hot">' + planks + '</g>');
+    // 간판
+    o.push('<rect x="' + shX + '" y="4" width="' + shW + '" height="' + signH + '" rx="5" fill="' + ink + '"/>');
+    o.push('<text x="' + (shX + shW / 2) + '" y="' + (4 + signH / 2) + '" dy=".36em" text-anchor="middle" font-size="' + Math.min(12, signH - 3) + '" font-weight="800" fill="#ffd54a">괴물 편의점 24h</text>');
+    // 문
+    o.push('<rect x="' + doorX + '" y="' + doorY + '" width="' + doorW + '" height="' + (fy - doorY) + '" rx="3" fill="#bfe3f2" stroke="' + ink + '" stroke-width="2.5"/>');
+    o.push('<path d="M' + (doorX + doorW / 2) + ' ' + doorY + 'V' + fy + '" stroke="' + ink + '" stroke-width="2"/>');
+    o.push('<rect x="' + (doorX + doorW / 2 + 4) + '" y="' + Math.round(doorY + (fy - doorY) * 0.5) + '" width="3" height="11" rx="1.5" fill="' + ink + '"/>');
+    o.push('<path d="M' + (doorX + 5) + ' ' + (doorY + 14) + 'l12 -8M' + (doorX + 5) + ' ' + (doorY + 23) + 'l16 -11" stroke="#fff" stroke-width="2" opacity=".75"/>');
+    // 진열대
+    o.push('<rect x="' + shX + '" y="' + shY + '" width="' + shW + '" height="' + shH + '" fill="#dccaa6" stroke="' + ink + '" stroke-width="2"/>');
+    var colors = ['#e0525b', '#f2b632', '#5aa9e6', '#5dbb63', '#b07cd8', '#ff8a3d'];
+    var rowH = shH / 3;
+    for (var r = 0; r < 3; r++) {
+      var by = shY + rowH * (r + 1);
+      var x = shX + 5;
+      while (x < shX + shW - 14) {
+        var bw = 9 + Math.floor(rnd() * 8);
+        var bh = Math.max(3, Math.min(rowH - 7, 9 + Math.floor(rnd() * rowH * 0.45)));
+        o.push('<rect x="' + x + '" y="' + (by - 3 - bh) + '" width="' + bw + '" height="' + bh + '" rx="1.5" fill="' + colors[Math.floor(rnd() * colors.length)] + '" stroke="' + ink + '" stroke-width="1.2"/>');
+        x += bw + 3;
+      }
+      o.push('<rect x="' + shX + '" y="' + (by - 3) + '" width="' + shW + '" height="4" fill="#9c7b4f"/>');
+    }
+    // 바닥: 마름(타일)
+    o.push('<rect x="0" y="' + fy + '" width="' + w + '" height="' + fh + '" fill="url(#pt-tile)"/>');
+    o.push('<path d="M0 ' + fy + 'H' + w + '" stroke="' + ink + '" stroke-width="2"/>');
+    // 바닥: 젖음(웅덩이 · 물결 · 튜브)
+    var wet = '<rect x="0" y="' + (fy + 1) + '" width="' + w + '" height="' + fh + '" fill="#5aaee6" opacity=".82"/>';
+    for (var k = 0; k < 3; k++) wet += wave(Math.round(fy + fh * (0.22 + k * 0.28)));
+    wet += '<path d="M0 ' + (fy + 5) + 'H' + w + '" stroke="#fff" stroke-width="3" stroke-dasharray="7 6"/><path d="M6.5 ' + (fy + 5) + 'H' + w + '" stroke="#e0525b" stroke-width="3" stroke-dasharray="6 7"/>';
+    var rx = Math.round(w * 0.74), ry = Math.round(fy + fh * 0.6);
+    wet += '<circle cx="' + rx + '" cy="' + ry + '" r="11" fill="none" stroke="#fff" stroke-width="7"/><circle cx="' + rx + '" cy="' + ry + '" r="11" fill="none" stroke="#e0525b" stroke-width="7" stroke-dasharray="8.6 8.7"/>';
+    wet += '<circle cx="' + rx + '" cy="' + ry + '" r="14.5" fill="none" stroke="' + ink + '" stroke-width="1.4"/><circle cx="' + rx + '" cy="' + ry + '" r="7.5" fill="none" stroke="' + ink + '" stroke-width="1.4"/>';
+    wet += '<ellipse cx="' + (doorX + doorW / 2) + '" cy="' + (fy + 9) + '" rx="22" ry="4" fill="none" stroke="#e8f6ff" stroke-width="1.6"/>';
+    o.push('<g class="lay lay-wet">' + wet + '</g>');
+    // 점원과 계산대
+    o.push('<path d="M' + (clX - 17) + ' ' + (ctY + 2) + 'q0 -19 17 -19q17 0 17 19z" fill="#4c7bd9" stroke="' + ink + '" stroke-width="2"/>');
+    o.push('<circle cx="' + clX + '" cy="' + clY + '" r="12" fill="#ffd9b8" stroke="' + ink + '" stroke-width="2"/>');
+    o.push('<path d="M' + (clX - 12) + ' ' + (clY - 3) + 'a12 12 0 0 1 24 0z" fill="#2f9e5b" stroke="' + ink + '" stroke-width="2"/><path d="M' + clX + ' ' + (clY - 3) + 'h15" stroke="' + ink + '" stroke-width="3" stroke-linecap="round"/>');
+    o.push('<circle cx="' + (clX - 4.5) + '" cy="' + (clY + 1) + '" r="1.6" fill="' + ink + '"/><circle cx="' + (clX + 4.5) + '" cy="' + (clY + 1) + '" r="1.6" fill="' + ink + '"/>');
+    o.push('<path class="m-happy" d="M' + (clX - 4) + ' ' + (clY + 5) + 'q4 4 8 0" fill="none" stroke="' + ink + '" stroke-width="1.8" stroke-linecap="round"/>');
+    o.push('<path class="m-sad" d="M' + (clX - 4) + ' ' + (clY + 8) + 'q4 -4 8 0" fill="none" stroke="' + ink + '" stroke-width="1.8" stroke-linecap="round"/>');
+    o.push('<g class="lay lay-hot"><path d="M' + (clX + 14) + ' ' + (clY - 7) + 'q-3 5 0 7q3 -2 0 -7z" fill="#7cc4ef" stroke="' + ink + '" stroke-width="1"/><circle cx="' + (clX - 7) + '" cy="' + (clY + 5) + '" r="2.5" fill="#ff8f8f"/><circle cx="' + (clX + 7) + '" cy="' + (clY + 5) + '" r="2.5" fill="#ff8f8f"/></g>');
+    o.push('<g class="lay lay-cold"><rect x="' + (clX - 11) + '" y="' + (clY + 10) + '" width="22" height="5" rx="2.5" fill="#e0525b" stroke="' + ink + '" stroke-width="1.2"/><path d="M' + (clX - 18) + ' ' + (clY - 5) + 'l-3 3l3 3M' + (clX + 18) + ' ' + (clY - 5) + 'l3 3l-3 3" fill="none" stroke="#2f7fc4" stroke-width="1.6" stroke-linecap="round"/></g>');
+    o.push('<rect x="' + ctX + '" y="' + ctY + '" width="' + ctW + '" height="' + (fy - ctY + 10) + '" rx="3" fill="#8a6a4a" stroke="' + ink + '" stroke-width="2"/>');
+    o.push('<rect x="' + (ctX - 3) + '" y="' + (ctY - 4) + '" width="' + (ctW + 6) + '" height="6" rx="2" fill="#b38b5d" stroke="' + ink + '" stroke-width="2"/>');
+    o.push('<rect x="' + (ctX + 6) + '" y="' + (ctY - 16) + '" width="22" height="12" rx="2" fill="#5b5b6e" stroke="' + ink + '" stroke-width="1.6"/><rect x="' + (ctX + 9) + '" y="' + (ctY - 14) + '" width="16" height="4" fill="#9fe39f"/>');
+    // 차가움: 고드름 · 눈 · 서리
+    var cold = '';
+    for (var ix = 3; ix < w; ix += 15) { var L = 6 + ((ix * 7) % 10); cold += '<path d="M' + ix + ' 0L' + (ix + 8) + ' 0L' + (ix + 4) + ' ' + L + 'z" fill="#eaf7ff" stroke="#7fb7e0" stroke-width="1"/>'; }
+    cold += '<rect x="' + (shX - 2) + '" y="' + (shY - 4) + '" width="' + (shW + 4) + '" height="5" rx="2.5" fill="#fff" stroke="#9cc3e6"/>';
+    cold += '<rect x="' + (ctX - 4) + '" y="' + (ctY - 8) + '" width="' + (ctW + 8) + '" height="5" rx="2.5" fill="#fff" stroke="#9cc3e6"/>';
+    cold += flake(doorX + 13, doorY + 13, 7) + flake(doorX + doorW - 12, fy - 14, 6) + flake(shX + shW + 4, top + 8, 5) + flake(w - 14, fy - 54, 5);
+    cold += '<path d="M0 ' + (fy + 2) + 'H' + w + '" stroke="#dff1ff" stroke-width="4" opacity=".9"/>';
+    o.push('<g class="lay lay-cold">' + cold + '</g>');
+    // 뜨거움: 김 · 온천 표시
+    var hot = '';
+    for (var j = 0; j < 6; j++) {
+      var hx = Math.round(30 + j * (w - 60) / 5), hy = Math.round(fy + fh * 0.55);
+      hot += '<path class="wisp" style="animation-delay:' + (-j * 0.4).toFixed(1) + 's" d="M' + hx + ' ' + hy + 'q-7 -10 0 -20q7 -10 0 -20q-7 -10 0 -20" fill="none" stroke="#fff" stroke-width="3.5" stroke-linecap="round"/>';
+    }
+    var sx = w - 20, sy = Math.round(signH / 2 + 6);
+    hot += '<circle cx="' + sx + '" cy="' + sy + '" r="' + (signH / 2 + 3) + '" fill="#fff4e8" stroke="#c2410c" stroke-width="2"/>';
+    hot += '<g transform="translate(' + (sx - 8) + ' ' + (sy - 8) + ') scale(.67)" fill="none" stroke="#c2410c" stroke-width="2.4" stroke-linecap="round"><path d="M7 3c-2 2 2 3.5 0 6M12 2c-2 2 2 3.5 0 6M17 3c-2 2 2 3.5 0 6M3 12.5h18c0 5-4 8.5-9 8.5s-9-3.5-9-8.5z"/></g>';
+    o.push('<g class="lay lay-hot">' + hot + '</g>');
+    return { svg: o.join(''), fh: fh, clY: clY };
+  }
+
+  /* ================================================================
+   * 10. 자가검사 (콘솔: MonsterStore.selfTest(), 주소 ?selftest)
+   *     정답 경로는 화면에 표시하지 않는다.
+   * ================================================================ */
+  function selfTest() {
+    var results = [];
+    function t(name, ok) { results.push({ name: name, ok: !!ok }); if (!ok) console.error('[자가검사 실패] ' + name); }
+    function same(a, b) { return JSON.stringify(a) === JSON.stringify(b); }
+    function play(choices) { var s = initialState(); choices.forEach(function (c) { s = resolve(s, c).state; }); return s; }
+
+    // 수치 · 순서
+    t('고정 순서 10명', same(SEQUENCE, ['dragon', 'snowman', 'cloud', 'steam', 'snowman', 'bath', 'steam', 'dragon', 'dragon', 'bath']) && SEQUENCE.length === GUEST_COUNT);
+    t('초기 수치', GUEST_COUNT === 10 && SALES_TARGET === 6 && COMPLAINT_LIMIT === 2 && PREVIEW_COUNT === 2 && SWIPE_THRESHOLD === 64 && HORIZONTAL_RATIO === 1.5 && CHOICE_LOCK_MS === 300);
+
+    // guest-table: 독립 기대표로 5종 × 6상태 검사
+    var EXPECT = {
+      dragon:  { fit: function (e) { return !e.wet; },              after: function (e) { return { temp: 'hot', wet: false }; } },
+      snowman: { fit: function (e) { return e.temp !== 'hot'; },   after: function (e) { return { temp: 'cold', wet: e.wet }; } },
+      cloud:   { fit: function (e) { return e.temp === 'cold'; },  after: function (e) { return { temp: e.temp, wet: true }; } },
+      steam:   { fit: function (e) { return e.wet; },               after: function (e) { return { temp: 'hot', wet: false }; } },
+      bath:    { fit: function (e) { return e.temp === 'hot'; },   after: function (e) { return { temp: 'cold', wet: e.wet }; } }
+    };
+    var tableOk = true, rejectOk = true;
+    Object.keys(EXPECT).forEach(function (id) {
+      var idx = SEQUENCE.indexOf(id);
+      TEMPS.forEach(function (temp) {
+        [false, true].forEach(function (wet) {
+          var base = Object.assign(initialState(), { index: idx, temp: temp, wet: wet, sales: 2, complaints: 0 });
+          var env = { temp: temp, wet: wet }, ex = EXPECT[id];
+          var a = resolve(base, 'admit').state;
+          var want = ex.fit(env)
+            ? Object.assign({}, base, ex.after(env), { sales: 3, index: idx + 1 })
+            : Object.assign({}, base, { complaints: 1, index: idx + 1 });
+          if (!same(a, want)) { tableOk = false; console.error('표 불일치', id, env, a, want); }
+          var rj = resolve(base, 'reject').state;
+          if (!same(rj, Object.assign({}, base, { index: idx + 1 }))) rejectOk = false;
+          if (!same(base, Object.assign(initialState(), { index: idx, temp: temp, wet: wet, sales: 2, complaints: 0 }))) tableOk = false;
+        });
+      });
+    });
+    t('guest-table: 5종 요구·효과, 적합=판매만, 부적합=불만만·환경 유지', tableOk);
+    t('거절은 판매·불만·환경 유지, 인덱스만 +1', rejectOk);
+
+    // meaningful-fixed-shift
+    var A = 'admit', R = 'reject';
+    var path = play([R, A, A, A, R, A, R, A, A, A]);
+    t('검산 경로 → 판매 7 · 불만 0 · 성공', path.sales === 7 && path.complaints === 0 && path.scene === 'success');
+    var g = initialState();
+    while (g.scene === 'playing') g = resolve(g, fits(SEQUENCE[g.index], g) ? A : R).state;
+    t('적합하면 항상 받는 전략 → 판매 5 · 매출 부족 실패', g.sales === 5 && g.scene === 'failure' && g.endReason === 'sales');
+    var best = 0, bestNoDragon = 0;
+    for (var m = 0; m < 1024; m++) {
+      var s = initialState(), dragonAdmitted = false;
+      for (var i = 0; i < GUEST_COUNT; i++) {
+        var c = (m >> i) & 1 ? A : R;
+        if (c === A && SEQUENCE[i] === 'dragon') dragonAdmitted = true;
+        s = resolve(s, c).state;
+      }
+      best = Math.max(best, s.sales);
+      if (!dragonAdmitted) bestNoDragon = Math.max(bestNoDragon, s.sales);
+    }
+    t('전체 열거 최대 판매 7', best === 7);
+    t('용을 전부 거절하면 최대 판매 5', bestNoDragon === 5);
+
+    // end-priority-reset
+    var e1 = resolve(Object.assign(initialState(), { index: 9, sales: 6, complaints: 1, temp: 'cold' }), A).state;
+    t('불만 2가 열 명 종료·판매 6보다 먼저 판정', e1.scene === 'failure' && e1.endReason === 'complaints' && e1.index === 10);
+    var e2 = resolve(Object.assign(initialState(), { index: 9, sales: 5, complaints: 1, temp: 'hot' }), R).state;
+    t('판매 5로 열 명 종료 → 목표 부족 실패', e2.scene === 'failure' && e2.endReason === 'sales');
+    var e3 = resolve(Object.assign(initialState(), { index: 9, sales: 5, complaints: 1, temp: 'hot' }), A).state;
+    t('마지막 적합 입장으로 판매 6 → 성공', e3.scene === 'success' && e3.sales === 6);
+    var e4 = resolve(Object.assign(initialState(), { index: 3, complaints: 1 }), A).state;
+    t('교대 중간 불만 2 → 즉시 실패', e4.scene === 'failure' && e4.endReason === 'complaints' && e4.index === 4);
+    var r4 = resolve(e4, A), r5 = resolve(e4, R);
+    t('종료 뒤 추가 확정 0회', r4.state === e4 && r4.outcome === null && r5.state === e4 && r5.outcome === null);
+    t('재시작 초기 상태', same(initialState(), { scene: 'playing', temp: 'normal', wet: false, sales: 0, complaints: 0, index: 0, endReason: null }));
+
+    // preview-no-hidden-chain
+    var p0 = Object.assign(initialState(), { index: 1 });   // 눈사람, 보통·마름
+    var snap = JSON.stringify(p0);
+    var pv = previewNext(p0, A);
+    t('입장 미리보기 상태 = 현재 손님 효과만 (차가움·마름)', same(pv.env, { temp: 'cold', wet: false }));
+    t('다음 둘을 같은 예상 상태에서 각각 검사 (비구름 가능, 증기 유령 불가 · 연쇄 없음)', pv.next[0].id === 'cloud' && pv.next[0].fit === true && pv.next[1].id === 'steam' && pv.next[1].fit === false);
+    t('거절 미리보기 = 현재 상태 그대로', same(previewNext(p0, R).env, { temp: 'normal', wet: false }));
+    t('미리보기는 실제 상태를 바꾸지 않음', JSON.stringify(p0) === snap);
+    var pl = previewNext(Object.assign(initialState(), { index: 8 }), A).next, pz = previewNext(Object.assign(initialState(), { index: 9 }), A).next;
+    t('마지막 근처의 없는 예고 칸은 비움', pl[0] && pl[1] === null && pz[0] === null && pz[1] === null);
+
+    // 스와이프 판정 (input-one-transaction의 순수 부분)
+    t('스와이프 판정 경계', classifySwipe(64, 0) === A && classifySwipe(-64, 0) === R && classifySwipe(63.9, 0) === null &&
+      classifySwipe(90, 60) === A && classifySwipe(90, 60.1) === null && classifySwipe(0, 0) === null && classifySwipe(-120, -10) === R);
+
+    var pass = results.filter(function (x) { return x.ok; }).length;
+    console.info('[괴물 편의점 자가검사] 통과 ' + pass + ' / ' + results.length);
+    if (console.table) console.table(results);
+    return { pass: pass, fail: results.length - pass, results: results };
+  }
+
+  // DOM 입력 자가검사: 합성 포인터 이벤트로 확정 횟수를 센다. 끝나면 교대를 처음부터 다시 시작한다.
+  function inputSelfTest() {
+    var results = [];
+    function t(name, ok) { results.push({ name: name, ok: !!ok }); if (!ok) console.error('[입력 검사 실패] ' + name); }
+    function wait(ms) { return new Promise(function (res) { setTimeout(res, ms); }); }
+    function ptr(type, id, x, y, primary) {
+      card.dispatchEvent(new PointerEvent(type, { pointerId: id, clientX: x, clientY: y, isPrimary: primary !== false, pointerType: 'touch', button: 0, buttons: type === 'pointerup' || type === 'pointercancel' ? 0 : 1, bubbles: true, cancelable: true }));
+    }
+    function center() { var b = card.getBoundingClientRect(); return { x: b.left + b.width / 2, y: b.top + b.height / 2 }; }
+    function swipe(id, dx, dy, endType) {
+      var c = center();
+      ptr('pointerdown', id, c.x, c.y);
+      ptr('pointermove', id, c.x + dx * scale / 2, c.y + dy * scale / 2);
+      ptr('pointermove', id, c.x + dx * scale, c.y + dy * scale);
+      ptr(endType || 'pointerup', id, c.x + dx * scale, c.y + dy * scale);
+    }
+    if (introOpen) closeIntro();
+    restart(true);
+    return Promise.resolve().then(function () {
+      var c = center();
+      ptr('pointerdown', 201, c.x, c.y);
+      ptr('pointermove', 201, c.x + 40 * scale, c.y);
+      ptr('pointerdown', 202, c.x - 40, c.y + 10, false);     // 추가 손가락
+      ptr('pointermove', 201, c.x + 80 * scale, c.y + 4 * scale);
+      t('드래그 중 실제 상태·카운터 불변', state.index === 0 && state.sales === 0 && state.temp === 'normal');
+      ptr('pointerup', 202, c.x - 40, c.y + 10, false);
+      t('추가 손가락 떼기 → 확정 0회', state.index === 0);
+      ptr('pointerup', 201, c.x + 80 * scale, c.y + 4 * scale);
+      card.click(); btnAdmit.click(); btnReject.click();       // 합성 click · 잠금 중 버튼
+      t('오른쪽 80px 스와이프 → 입장 1회, 인덱스 정확히 +1', state.index === 1 && state.sales === 1);
+      return wait(CHOICE_LOCK_MS + 80);
+    }).then(function () {
+      swipe(203, 63, 0); t('짧은 드래그(63px) → 확정 0회', state.index === 1);
+      swipe(204, 90, 0, 'pointercancel'); t('pointercancel → 확정 0회', state.index === 1);
+      swipe(205, 80, 60); t('수평/수직 1.5배 미만 → 확정 0회', state.index === 1);
+      var c = center();
+      ptr('pointerdown', 206, c.x, c.y); ptr('pointermove', 206, c.x + 90 * scale, c.y);
+      window.dispatchEvent(new Event('blur'));
+      ptr('pointerup', 206, c.x + 90 * scale, c.y);
+      t('배경 전환(blur) 중 드래그 → 확정 0회', state.index === 1);
+      swipe(207, -80, 5); t('왼쪽 스와이프 → 거절 1회', state.index === 2 && state.sales === 1);
+      return wait(CHOICE_LOCK_MS + 80);
+    }).then(function () {
+      btnAdmit.click(); btnAdmit.click();
+      t('버튼 연타 → 잠금으로 1회만 확정', state.index === 3);
+      return wait(CHOICE_LOCK_MS + 80);
+    }).then(function () {
+      var before = state.index;
+      openIntro(true); btnAdmit.click(); closeIntro();
+      t('안내 창이 열려 있으면 확정 0회', state.index === before);
+      restart(true);
+      t('재시작 → 초기 상태', JSON.stringify(state) === JSON.stringify(initialState()) && drag === null && lockUntil === 0);
+      var pass = results.filter(function (x) { return x.ok; }).length;
+      console.info('[괴물 편의점 입력 검사] 통과 ' + pass + ' / ' + results.length);
+      if (console.table) console.table(results);
+      return { pass: pass, fail: results.length - pass, results: results };
+    });
+  }
+
+  window.MonsterStore = Object.freeze({
+    selfTest: selfTest,
+    inputSelfTest: inputSelfTest,
+    getState: function () { return Object.assign({}, state); },
+    rules: Object.freeze({ fits: fits, applyEffect: applyEffect, resolve: resolve, previewNext: previewNext, classifySwipe: classifySwipe, initialState: initialState, SEQUENCE: SEQUENCE })
+  });
+
+  /* ================================================================
+   * 11. 시작
+   * ================================================================ */
+  window.addEventListener('resize', layout);
+  window.addEventListener('orientationchange', function () { setTimeout(layout, 120); });
+  layout();
+  render();
+  game.inert = true;
+  btnStart.focus({ preventScroll: true });
+  if (/[?&]selftest\b/.test(location.search)) selfTest();
+})();
+</script>
+</body>
+</html>
